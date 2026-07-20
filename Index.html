@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/css/materialize.min.css">
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <style>
+    body { padding: 20px; background-color: #eceff1; }
+    .card { padding: 25px; border-radius: 12px; }
+    .btn-block { width: 100%; margin-bottom: 10px; }
+    #loader { display: none; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="card">
+      <h5 class="blue-text center-align">HIỆP VĨNH AN WEB APP</h5>
+      <hr>
+      <div class="row">
+        <div class="col s12 m6">
+          <p><b>1. Nhập dữ liệu Excel:</b></p>
+          <button class="btn green btn-block" onclick="pickFile('NB')">IMPORT NỘI BỘ</button>
+          <button class="btn orange btn-block" onclick="pickFile('THUE')">IMPORT THUẾ</button>
+          <input type="file" id="fileInp" style="display:none" onchange="readExcel(this)" accept=".xlsx, .xls">
+        </div>
+        <div class="col s12 m6">
+          <p><b>2. Xử lý hệ thống:</b></p>
+          <button class="btn blue btn-block" onclick="runUpdate()">CẬP NHẬT TỔNG LỰC</button>
+        </div>
+      </div>
+      <div id="loader" class="progress"><div class="indeterminate"></div></div>
+      <div id="status" class="center-align" style="font-weight:bold"></div>
+    </div>
+  </div>
+
+  <script>
+    let currentTarget = '';
+    const status = document.getElementById('status');
+    const loader = document.getElementById('loader');
+
+    function pickFile(target) { currentTarget = target; document.getElementById('fileInp').click(); }
+
+    function readExcel(input) {
+      const file = input.files[0]; if(!file) return;
+      loader.style.display = 'block'; status.innerText = 'Đang xử lý file...';
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        const data = new Uint8Array(e.target.result);
+        const wb = XLSX.read(data, {type:'array'});
+        const jsonData = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], {header:1});
+        google.script.run.withSuccessHandler(msg => {
+          loader.style.display = 'none'; status.innerText = msg; input.value = '';
+        }).processImportGeneral(jsonData, currentTarget);
+      };
+      reader.readAsArrayBuffer(file);
+    }
+
+    function runUpdate() {
+      loader.style.display = 'block'; status.innerText = 'Đang tính toán chênh lệch...';
+      google.script.run.withSuccessHandler(msg => {
+        loader.style.display = 'none'; status.innerText = msg;
+      }).updateThueAndCheckRemain();
+    }
+  </script>
+</body>
+</html>
