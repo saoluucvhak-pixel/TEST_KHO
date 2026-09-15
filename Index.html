@@ -41,18 +41,29 @@
 
     function pickFile(target) { currentTarget = target; document.getElementById('fileInp').click(); }
 
+    function onFail(err) {
+      loader.style.display = 'none';
+      status.innerText = '❌ Lỗi: ' + (err && err.message ? err.message : err);
+      document.getElementById('fileInp').value = '';
+    }
+
     function readExcel(input) {
       const file = input.files[0]; if(!file) return;
       loader.style.display = 'block'; status.innerText = 'Đang xử lý file...';
       const reader = new FileReader();
       reader.onload = function(e) {
-        const data = new Uint8Array(e.target.result);
-        const wb = XLSX.read(data, {type:'array'});
-        const jsonData = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], {header:1});
-        google.script.run.withSuccessHandler(msg => {
-          loader.style.display = 'none'; status.innerText = msg; input.value = '';
-        }).processImportGeneral(jsonData, currentTarget);
+        try {
+          const data = new Uint8Array(e.target.result);
+          const wb = XLSX.read(data, {type:'array'});
+          const jsonData = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], {header:1});
+          google.script.run.withSuccessHandler(msg => {
+            loader.style.display = 'none'; status.innerText = msg; input.value = '';
+          }).withFailureHandler(onFail).processImportGeneral(jsonData, currentTarget);
+        } catch (err) {
+          onFail(err);
+        }
       };
+      reader.onerror = () => onFail(new Error('Không đọc được file.'));
       reader.readAsArrayBuffer(file);
     }
 
@@ -60,7 +71,7 @@
       loader.style.display = 'block'; status.innerText = 'Đang tính toán chênh lệch...';
       google.script.run.withSuccessHandler(msg => {
         loader.style.display = 'none'; status.innerText = msg;
-      }).updateThueAndCheckRemain();
+      }).withFailureHandler(onFail).updateThueAndCheckRemain();
     }
   </script>
 </body>

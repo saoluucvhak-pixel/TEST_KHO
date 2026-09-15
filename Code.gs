@@ -22,7 +22,7 @@ function processImportGeneral(rawData, target) {
     let colA_Ex = String(row[0] || "").trim();
     let colB_Ex = String(row[1] || "").trim();
     
-    if (colA_Ex.includes("Số dòng") || colB_Ex.includes("Số dòng") || colA_Ex.includes("Cộng")) break;
+    if (colA_Ex.includes("Số dòng") || colB_Ex.includes("Số dòng") || colA_Ex.includes("Cộng") || colB_Ex.includes("Cộng")) break;
     if (colB_Ex === "" || colB_Ex === "Mã hàng") continue;
 
     if (target === 'NB') {
@@ -36,7 +36,7 @@ function processImportGeneral(rawData, target) {
 
   if (cleanedData.length > 0) {
     if (sheet.getLastRow() > 1) {
-      sheet.getRange(2, 1, sheet.getLastRow(), sheet.getLastColumn()).clearContent();
+      sheet.getRange(2, 1, sheet.getLastRow() - 1, sheet.getLastColumn()).clearContent();
     }
     sheet.getRange(2, 1, cleanedData.length, cleanedData[0].length).setValues(cleanedData);
     return "✅ Đã Import " + cleanedData.length + " dòng vào " + sheetName;
@@ -57,6 +57,8 @@ function updateThueAndCheckRemain() {
   const shTkNB = ss.getSheetByName("TK_NB");
   const shTkThue = ss.getSheetByName("TK_THUE");
   const shDM = ssDM.getSheetByName("DM_CHUNG");
+  if (!shTkNB || !shTkThue) throw new Error("Chưa có dữ liệu TK_NB / TK_THUE. Vui lòng Import Excel trước khi Cập Nhật Tổng Lực.");
+  if (!shDM) throw new Error("Không tìm thấy sheet 'DM_CHUNG' trong file DM_CHUNG!");
   const shThueNB = ss.getSheetByName("THUE_NB") || ss.insertSheet("THUE_NB");
   const shTonNB = ss.getSheetByName("TONKHO_NB") || ss.insertSheet("TONKHO_NB");
   const shTonThue = ss.getSheetByName("TONKHO_THUE") || ss.insertSheet("TONKHO_THUE");
@@ -65,7 +67,10 @@ function updateThueAndCheckRemain() {
   const dataTkNB = shTkNB.getDataRange().getValues();
   const dataTkThue = shTkThue.getDataRange().getValues();
   const dataDM = shDM.getDataRange().getValues();
-  const genID = () => "HVA-" + Math.floor(100000 + Math.random() * 900000);
+  // ID tuần tự theo run (prefix + thời điểm chạy + số thứ tự dòng) để đảm bảo không trùng,
+  // thay cho số ngẫu nhiên 6 chữ số cũ (dễ đụng nhau khi có hàng trăm/ngàn dòng).
+  const runStamp = Date.now().toString(36).toUpperCase();
+  const genID = (i) => "HVA-" + runStamp + "-" + i;
 
   const mapMaBSangChungA = new Map(), mapTenCSangChungA = new Map();
   const mapTenCSangMaB = new Map(), mapMaBSangMaL = new Map();
@@ -84,10 +89,10 @@ function updateThueAndCheckRemain() {
   }
 
   // Cập nhật TONKHO_THUE & TONKHO_NB
-  const resTonThue = dataTkThue.map((r, i) => i == 0 ? [...r, "Mã Chung", "ID_KEY"] : [...r, mapMaBSangChungA.get(String(r[1]).trim()) || "", genID()]);
+  const resTonThue = dataTkThue.map((r, i) => i == 0 ? [...r, "Mã Chung", "ID_KEY"] : [...r, mapMaBSangChungA.get(String(r[1]).trim()) || "", genID("T" + i)]);
   shTonThue.clear().getRange(1, 1, resTonThue.length, resTonThue[0].length).setValues(resTonThue);
 
-  const resTonNB = dataTkNB.map((r, i) => i == 0 ? [...r, "Mã Chung", "ID_KEY"] : [...r, mapTenCSangChungA.get(String(r[2]).trim()) || "", genID()]);
+  const resTonNB = dataTkNB.map((r, i) => i == 0 ? [...r, "Mã Chung", "ID_KEY"] : [...r, mapTenCSangChungA.get(String(r[2]).trim()) || "", genID("N" + i)]);
   shTonNB.clear().getRange(1, 1, resTonNB.length, resTonNB[0].length).setValues(resTonNB);
 
   // Xử lý THUE_NB (Có D, K diễn giải)
